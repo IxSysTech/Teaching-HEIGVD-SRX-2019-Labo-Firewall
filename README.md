@@ -123,15 +123,7 @@ _Lors de la définition d'une zone, spécifier l'adresse du sous-réseau IP avec
 
 **LIVRABLE : Remplir le tableau**
 
-| Adresse IP source | Adresse IP destination | Type | Port src | Port dst | Action |
-| :---:             | :---:                  | :---:| :------: | :------: | :----: |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
+![GitHub Logo](img/firewall_table.png)
 
 ---
 
@@ -258,7 +250,9 @@ ping 192.168.100.3
 
 ---
 
-**LIVRABLE : capture d'écran de votre nouvelle tentative de ping.**
+**LIVRABLE : capture d'écran de votre nouvelle tentative de ping.** 
+
+![GitHub Logo](img/fisrt_ping.png)
 
 ---
 
@@ -273,6 +267,8 @@ ping 8.8.8.8
 ---
 
 **LIVRABLE : capture d'écran de votre ping vers l'Internet.**
+
+![GitHub Logo](img/first_wan_ping.png)
 
 ---
 

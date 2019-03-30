@@ -123,7 +123,34 @@ _Lors de la définition d'une zone, spécifier l'adresse du sous-réseau IP avec
 
 **LIVRABLE : Remplir le tableau**
 
-![GitHub Logo](img/firewall_table.png)
+| Adresse IP source | Adresse IP destination | Type | Port src | Port dst | Action |
+| :---:             | :---:                  | :---:| :------: | :------: | :----: |
+|*                  |*                       |*     |*        |*          | DENY        |
+| LAN                  | WAN                       |DNS/TCP      | *         |   53       | ACCEPT       |
+| LAN                  | WAN                       |DNS/UDP      | *         |   53       | ACCEPT       |
+| WAN                  | LAN                       |DNS/TCP      |53         | *          | ACCEPT       |
+| WAN                  | LAN                       |DNS/UDP      |53         | *          | ACCEPT       |
+| LAN                  | WAN                       | ICMP/Request    | -        | -         | ACCEPT       |
+| WAN                  | LAN                       | ICMP/Reply    | -        | -         | ACCEPT       |
+| LAN                  | DMZ                       | ICMP/Request    | -        | -         | ACCEPT       |
+| DMZ                  | LAN                       | ICMP/Replay    | -        | -         | ACCEPT       |
+| DMZ                  | LAN                       | ICMP/Request    | -        | -         | ACCEPT       |
+| LAN                  | DMZ                       | ICMP/Replay    | -        | -         | ACCEPT       |
+| LAN| WAN| HTTP/TCP|*  | 80| ACCEPT|
+| WAN| LAN| HTTP/TCP|80  | *| ACCEPT|
+| LAN| WAN| HTTP/TCP|*  | 8080| ACCEPT|
+| WAN| LAN| HTTP/TCP|8080  | *| ACCEPT|
+| LAN| WAN| HTTPS/TCP|*  | 443| ACCEPT|
+| WAN| LAN| HTTPS/TCP|443  | *| ACCEPT|
+| WAN| 192.168.200.3| HTTP/TCP|*  | 80| ACCEPT|
+| 192.168.200.3| WAN| HTTP/TCP|80  | *| ACCEPT|
+| LAN| 192.168.200.3| HTTP/TCP|*  | 80| ACCEPT|
+| 192.168.200.3| LAN| HTTP/TCP|80  | *| ACCEPT|
+| 192.168.100.3| 192.168.200.3| SSH/TCP|*  | 22| ACCEPT|
+| 192.168.200.3| 192.168.100.3| SSH/TCP|22  | *| ACCEPT|
+| 192.168.100.3| 192.168.100.2| SSH/TCP|*  | 22| ACCEPT|
+| 192.168.100.2| 192.168.100.3| SSH/TCP|22  | *| ACCEPT|
+
 
 ---
 
@@ -219,6 +246,8 @@ ping 192.168.200.3
 ---
 
 **LIVRABLE : capture d'écran de votre tentative de ping.**  
+
+![GitHub Logo](img/config_base_ping.png)
 
 ---
 
@@ -365,6 +394,24 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+
+#Block ALL
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+
+#Ping LAN -> WAN
+iptables -A FORWARD -p icmp -i eth1 -o eth0 --icmp-type 8 -j ACCEPT
+iptables -A FORWARD -p icmp -i eth0 -o eth1 --icmp-type 0 -j ACCEPT
+
+#Ping LAN -> DMZ
+iptables -A FORWARD -p icmp -i eth1 -o eth2 --icmp-type 8 -j ACCEPT
+iptables -A FORWARD -p icmp -i eth2 -o eth1 --icmp-type 0 -j ACCEPT
+
+#Ping DMZ -> LAN
+iptables -A FORWARD -p icmp -i eth2 -o eth1 --icmp-type 8 -j ACCEPT
+iptables -A FORWARD -p icmp -i eth1 -o eth2 --icmp-type 0 -j ACCEPT
+
 ```
 ---
 
@@ -383,6 +430,8 @@ Faire une capture du ping.
 ---
 **LIVRABLE : capture d'écran de votre ping vers l'Internet.**
 
+![GitHub Logo](img/config_end_ping.png)
+
 ---
 
 <ol type="a" start="3">
@@ -393,18 +442,18 @@ Faire une capture du ping.
 
 | De Client\_in\_LAN à | OK/KO | Commentaires et explications |
 | :---                 | :---: | :---                         |
-| Interface DMZ du FW  |       |                              |
-| Interface LAN du FW  |       |                              |
-| Client LAN           |       |                              |
-| Serveur WAN          |       |                              |
+| Interface DMZ du FW  |  ko   | le firewall ne peut pas transmettre le ping à lui-meme                            |
+| Interface LAN du FW  |  ok   | la machine est l'interface sont dans le meme réseau                              |
+| Client LAN           |  ko   | le client ne peut pas s'envoyer des ping à lui meme sauf si on utilise l'adresse 127.0.0.1                            |
+| Serveur WAN          |  ok   | fonctionne car la règle autorise les ping vers l'extérieur                             |
 
 
 | De Server\_in\_DMZ à | OK/KO | Commentaires et explications |
 | :---                 | :---: | :---                         |
-| Interface DMZ du FW  |       |                              |
-| Interface LAN du FW  |       |                              |
-| Serveur DMZ          |       |                              |
-| Serveur WAN          |       |                              |
+| Interface DMZ du FW  |  ok   | la machine est l'interface sont dans le meme réseau                             |
+| Interface LAN du FW  |  ko   | le firewall ne peut pas transmettre le ping à lui-meme                                  |
+| Serveur DMZ          |  ko   | le serveur ne peut pas s'envoyer des ping à lui meme sauf si on utilise l'adresse 127.0.0.1                              |
+| Serveur WAN          |  ko   | aucune règle n'autorise le ping depuis la partie DMZ vers la partie WAN de notre réseau                             |
 
 
 ## Règles pour le protocole DNS
@@ -424,6 +473,8 @@ ping www.google.com
 
 **LIVRABLE : capture d'écran de votre ping.**
 
+![GitHub Logo](img/ping_google_fail.png)
+
 ---
 
 * Créer et appliquer la règle adéquate pour que la **condition 1 du cahier des charges** soit respectée.
@@ -434,6 +485,15 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+
+#DNS LAN -> WAN UDP/TCP
+iptables -A FORWARD -p tcp --dport 53 -i eth1 -o eth0 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -p udp --dport 53 -i eth1 -o eth0 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+
+#DNS WAN -> LAN UDP/TCP
+iptables -A FORWARD -p udp --sport 53 -i eth0 -o eth1 -m state --state ESTABLISHED -j ACCEPT
+iptables -A FORWARD -p tcp --sport 53 -i eth0 -o eth1 -m state --state ESTABLISHED -j ACCEPT
+
 ```
 
 ---
@@ -447,6 +507,8 @@ LIVRABLE : Commandes iptables
 
 **LIVRABLE : capture d'écran de votre ping.**
 
+![GitHub Logo](img/ping_google.png)
+
 ---
 
 <ol type="a" start="6">
@@ -458,6 +520,8 @@ LIVRABLE : Commandes iptables
 **Réponse**
 
 **LIVRABLE : Votre réponse ici...**
+
+Nous n'autorisons pas les requetes DNS, que se soit de LAN à WAN et inversement. On faisant un ping sur www.google.ch, le client envoie une requete DNS pour essayer de résoudre ce nom de domaine. Malheureusement, il ne reçoit pas de réponse et donc nous inquique que la résolution n'a pas pu etre faite.
 
 ---
 
@@ -478,6 +542,21 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+
+#HTTP LAN -> WAN 80/8080
+iptables -A FORWARD -p tcp --dport 80 -i eth1 -o eth0 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -p tcp --dport 8080 -i eth1 -o eth0 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+
+#HTTP WAN -> LAN 80/8080
+iptables -A FORWARD -p tcp --sport 80 -i eth0 -o eth1 -m state --state ESTABLISHED -j ACCEPT
+iptables -A FORWARD -p tcp --sport 8080 -i eth0 -o eth1 -m state --state ESTABLISHED -j ACCEPT
+
+#HTTPS LAN -> WAN 
+iptables -A FORWARD -p tcp --dport 443 -i eth1 -o eth0 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+
+#HTTPS WAN -> LAN
+iptables -A FORWARD -p tcp --sport 443 -i eth0 -o eth1 -m state --state ESTABLISHED -j ACCEPT
+
 ```
 
 ---
@@ -490,6 +569,19 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+
+#HTTP WAN -> DMZ
+iptables -A FORWARD -p tcp --dport 80 -i eth0 -d 192.168.200.3 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+
+#HTTP DMZ -> WAN
+iptables -A FORWARD -p tcp --sport 80 -d 192.168.200.3 -o eth0 -m state --state ESTABLISHED -j ACCEPT
+
+#HTTP LAN -> DMZ
+iptables -A FORWARD -p tcp --dport 80 -i eth1 -d 192.168.200.3 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+
+#HTTP DMZ -> LAN
+iptables -A FORWARD -p tcp --sport 80 -s 192.168.200.3 -o eth1 -m state --state ESTABLISHED -j ACCEPT
+
 ```
 ---
 
@@ -501,6 +593,12 @@ LIVRABLE : Commandes iptables
 ---
 
 **LIVRABLE : capture d'écran.**
+
+wget http://www.heig-vd.ch    
+![GitHub Logo](img/wget_heig.png)
+
+wget http://192.168.200.3   
+![GitHub Logo](img/wget_dmz.png)
 
 ---
 
@@ -518,6 +616,19 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+
+#SSH LAN -> DMZ
+iptables -A FORWARD -p tcp --dport 22 -s 192.168.100.3 -d 192.168.200.3 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+
+#SSH DMZ -> LAN
+iptables -A FORWARD -p tcp --sport 22 -s 192.168.200.3 -d 192.168.100.3 -m state --state ESTABLISHED -j ACCEPT
+
+#SSH LAN -> Firewall
+iptables -A INPUT -p tcp --dport 22 -s 192.168.100.3 -d 192.168.100.2 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+
+#SSH Firewall -> LAN
+iptables -A OUTPUT -p tcp --sport 22 -s 192.168.100.2 -d 192.168.100.3 -m state --state ESTABLISHED -j ACCEPT
+
 ```
 
 ---
@@ -526,11 +637,14 @@ Depuis le client dans le LAN, tester l’accès avec la commande suivante :
 
 ```bash
 ssh root@192.168.200.3 (password : celui que vous avez configuré)
+
 ```
 
 ---
 
 **LIVRABLE : capture d'écran de votre connexion ssh.**
+
+![GitHub Logo](img/ssh_dmz.png)
 
 ---
 
@@ -544,6 +658,8 @@ ssh root@192.168.200.3 (password : celui que vous avez configuré)
 
 **LIVRABLE : Votre réponse ici...**
 
+Permet de se connecter à distance à la machine et accéder à son shell. Cela nous rend la tache plus simple pour la configuration de l'appareil car nous n'avons pas besoin d'etre à coté de la mahcine.
+
 ---
 
 <ol type="a" start="10">
@@ -556,6 +672,8 @@ ssh root@192.168.200.3 (password : celui que vous avez configuré)
 **Réponse**
 
 **LIVRABLE : Votre réponse ici...**
+
+Il faut faire bien attention à qui on donne l'accès ssh avec cette règle. Il faut restreindre le plus possible l'accès en ssh à la machine.
 
 ---
 
@@ -571,5 +689,7 @@ A présent, vous devriez avoir le matériel nécessaire afin de reproduire la ta
 ---
 
 **LIVRABLE : capture d'écran avec toutes vos règles.**
+
+![GitHub Logo](img/all_rules.png)
 
 ---
